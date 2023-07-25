@@ -77,6 +77,7 @@
 #define FT5x06_ID	0x55
 #define FT5x16_ID	0x0a
 #define FT5x26_ID	0x54
+#define FT5x46_ID	0x79
 
 /* Print macros */
 #define LOG(fmt, arg...) fprintf(stdout, "[%s]: " fmt "\n" , __func__ , ## arg)
@@ -104,11 +105,16 @@ struct ft5x06_fw_update_info {
 	uint8_t auto_clb;
 	uint16_t delay_aa;		/*delay of write FT_UPGRADE_AA */
 	uint16_t delay_55;		/*delay of write FT_UPGRADE_55 */
-	uint8_t upgrade_id_1;		/*upgrade id 1 */
-	uint8_t upgrade_id_2;		/*upgrade id 2 */
+	uint8_t chip_idh;
+	uint8_t chip_idl;
+	uint8_t rom_idh;
+	uint8_t rom_idl;
+	uint8_t pb_idh;
+	uint8_t pb_idl;
+	uint8_t bl_idh;
+	uint8_t bl_idl;
 	uint16_t delay_readid;		/*delay of read id */
 	uint16_t delay_erase_flash;	/*delay of erase flash*/
-	uint32_t flash_offset;
 };
 
 /*
@@ -116,7 +122,7 @@ struct ft5x06_fw_update_info {
  * https://github.com/focaltech-systems/drivers-input-touchscreen-FTS_driver
  */
 struct ft5x06_fw_update_info ft5x06_fwu_info[] = {
-	{FT5x26_ID, "ft5x26", 5, 0,  4, 250, 0x54, 0x2c, 10, 3000, 0x1800},
+	{FT5x46_ID, "ft5x46", 10, 0, 4, 250, 0x54, 0x22, 0x54, 0x22, 0x54, 0x2D, 0x54, 0x2E, 10, 3000},
 };
 
 static int ft5x06_i2c_read(struct ft5x06_ts *ts, uint8_t *wrbuf, uint16_t wrlen,
@@ -227,8 +233,12 @@ static int ft5x06_read_id(struct ft5x06_ts *ts)
 	packet_buf[1] = packet_buf[2] = packet_buf[3] = 0x00;
 
 	ft5x06_i2c_read(ts, packet_buf, 4, reg_val, 2);
-	if (reg_val[0] != info->upgrade_id_1
-	    || reg_val[1] != info->upgrade_id_2) {
+	if (!(
+		(reg_val[0] == info->chip_idh && reg_val[1] == info->chip_idl) || 
+		(reg_val[0] == info->rom_idh && reg_val[1] == info->rom_idl) || 
+		(reg_val[0] == info->pb_idh && reg_val[1] == info->pb_idl) || 
+		(reg_val[0] == info->bl_idh && reg_val[1] == info->bl_idl)
+	)) {
 		ERR("READ-ID not ok: %x %x", reg_val[0], reg_val[1]);
 		return -1;
 	}
@@ -267,7 +277,7 @@ static int ft5x06_init_upgrade(struct ft5x06_ts *ts)
 
 		/* Step 2: Enter upgrade mode */
 		LOG("Enter upgrade mode");
-		if (ts->chip_id == FT5x26_ID)
+		if (ts->chip_id == FT5x46_ID)
 			ft5x26_hid_to_i2c(ts);
 		packet_buf[0] = FT_UPGRADE_55;
 		packet_buf[1] = FT_UPGRADE_AA;
