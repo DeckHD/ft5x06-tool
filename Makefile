@@ -22,7 +22,7 @@ DESTDIR ?= /usr
 
 # options
 override CFLAGS += -fPIC -Wall
-override LDFLAGS +=
+override LDFLAGS += -static -lgpiod
 
 # first rule (default)
 all:
@@ -47,7 +47,7 @@ $O/%.o : %.c directories
 
 $(TARGET_BIN): $(OBJ_BIN)
 	$P '  LD      $(@F)'
-	$E $(CC) $(LDFLAGS) $^ -o $@
+	$E $(CC) $^ $(LDFLAGS) -o $@
 
 .PHONY : all
 all : $(TARGET_BIN)

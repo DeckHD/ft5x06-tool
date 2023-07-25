@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017, Boundary Devices <info@boundarydevices.com>
+ * Copyright (C) 2023, DeckHD <info@deckhd.com>
  *
  * SPDX-License-Identifier:      GPL-2.0+
  *
@@ -20,6 +21,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <gpiod.h>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -483,6 +485,60 @@ static void show_help(const char *name)
 	return;
 }
 
+int reset_gpio()
+{
+	char *chipname = "gpiochip0";
+	unsigned int line_num = 69;
+	struct gpiod_chip *chip;
+	struct gpiod_line *line;
+	int ret;
+
+	printf("Resetting the touch screen.\n");
+
+	chip = gpiod_chip_open_by_name(chipname);
+	if (!chip) {
+		perror("Open chip failed\n");
+		goto end;
+	}
+
+	line = gpiod_chip_get_line(chip, line_num);
+	if (!line) {
+		perror("Get line failed\n");
+		goto close_chip;
+	}
+
+	ret = gpiod_line_request_output(line, "touch_reset", 0);
+	if (ret < 0) {
+		perror("Request line as output failed\n");
+		goto release_line;
+	}
+
+	sleep(1);
+
+	ret = gpiod_line_set_value(line, 0);
+	if (ret < 0) {
+		perror("Set line output low failed\n");
+		goto release_line;
+	}
+
+	sleep(1);
+
+	ret = gpiod_line_set_value(line, 1);
+	if (ret < 0) {
+		perror("Set line output high failed\n");
+		goto release_line;
+	}
+
+	printf("Reset done.\n");
+
+release_line:
+	gpiod_line_release(line);
+close_chip:
+	gpiod_chip_close(chip);
+end:
+	return 0;
+}
+
 int main(int argc, const char *argv[])
 {
 	struct ft5x06_ts ts = {-1, 2, 0x38, 0xff, 0xff};
@@ -562,6 +618,8 @@ int main(int argc, const char *argv[])
 		LOG("Nothing to do (read or write)");
 		goto end;
 	}
+
+	reset_gpio();
 
 	/* First read the firmware if asked for */
 	if (output != NULL) {
